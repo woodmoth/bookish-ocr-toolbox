@@ -244,7 +244,7 @@ for i in *.pdf; do
                 echo " Current pdf is: $book"
                 ;;
             "purge!")
-                if find "$workingDirectory/.bookish" 2>/dev/null; then
+                if find "$workingDirectory/.bookish" 1> /dev/null 2>/dev/null; then
                     rm -dr ./.bookish/ 2>/dev/null
                     whiptail --msgbox "Removed ./bookish folder" 0 0 0
                     echo "Removed ./bookish folder"
