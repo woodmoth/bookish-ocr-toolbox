@@ -1,0 +1,218 @@
+#! /bin/bash
+
+# Need dmenu, poppler, tesseract, teseract-data... packages
+# Do not create .bookish folders of your own in the working directories! Though it shouldm't be deleted unless there are no unhidden files inside.
+
+clear
+
+whiptail --msgbox --title "Bookish" "Read in Terminal, select in Dmenu.\n   Make sure you have: dmenu, ranger, poppler, tesseract, tesseract-data-'s\n      Recommended to open Terminal floating.\n\n         The programm creates ./.bookish folder. \n      Do not put anything ./bookish/important as it could be deleted!" 0 0 0
+echo "Choose a PDF Book to Split and do OCR analysis or analyse existing Splits."
+echo "=============================================================================="
+
+# Dmenu shows available .pdfs, you can select or search. If no pdf in folder - Nothing!
+
+book=$(printf "%s\n" "$(ls -1 *.pdf 2>/dev/null | sort)" "Nothing!" | dmenu -l 20)
+
+if [ "$book" == "Nothing!" ]; then
+    echo "Changed your mind?"
+    exit
+fi
+
+# Check if prompted pdf exists.
+# Shows number of pages using poppler-utils' pdfinfo
+
+for i in *.pdf; do
+    if [ "$book" == "$i" ]; then
+        echo "------------"
+        echo "Selected: \"${book%.pdf}\""
+        echo
+        echo "Pages: $(pdfinfo "$book" | awk '/^Pages:/ {print $2}')"
+        echo "------------"
+
+        # What to do with books?
+
+        while true; do
+
+            bookishAction=$(printf "%s\n" "Split" "Scan" "Reselect" "Open Folder" "Delete Folder" "Exit" | dmenu -l 20)
+
+            case "$bookishAction" in
+            "Split")
+
+                # Asks if Split
+
+                splitQuestion="$(printf "%s\n" "Proceed \"${book%.pdf}\"" "Cancel" | dmenu -l 20)"
+
+                if [ "$splitQuestion" == "Cancel" ]; then continue; fi
+
+                echo "Started Split."
+
+                mkdir .bookish 2>/dev/null
+
+                # Checks if prompted numbers are numbers then proceeds Split
+
+                while true; do
+
+                    ifnumber='^[0-9]+$'
+
+                    spoint="$(echo "Select Starting point" | dmenu -l 20)"
+
+                    if ! [[ $spoint =~ $ifnumber ]]; then
+                        echo "error: Not a Number" | dmenu -l 20
+                        continue
+                    fi
+
+                    epoint="$(echo "Select Ending point" | dmenu -l 20)"
+
+                    if ! [[ $epoint =~ $ifnumber ]]; then
+                        echo "error: Not a Number" | dmenu -l 20
+                        continue
+                    elif [ $spoint -ge $epoint ]; then
+                        echo "error: Prompt Ascending numbers" | dmenu -l 20
+                        continue
+                    elif [ $epoint -gt "$(pdfinfo "$book" | awk '/^Pages:/ {print $2}')" ]; then
+                        echo "error: Prompted more Pages than possible" | dmenu -l 20
+                    else
+                        break
+                    fi
+                done
+
+                # Starts pdf file split using poppler-utils' qpdf
+
+                mkdir "./.bookish/Split_${book%.pdf}" 2>/dev/null
+                qpdf "$book" --pages . $spoint"-"$epoint -- "./.bookish/Split_${book%.pdf}/p.$spoint-$epoint, $book"
+                whiptail --msgbox "Did \"${book%.pdf}\" at $spoint-$epoint pages" 0 0 0
+                echo "Did \"${book%.pdf}\" at $spoint-$epoint pages"
+
+                echo "Split ended!"
+                ;;
+
+            "Scan")
+                if [ -d ".bookish" ]; then
+                    cd .bookish || exit 1
+
+                    if ! [ -d "Split_${book%.pdf}" ]; then
+                        whiptail --msgbox "No splits of a \"${book%.pdf}\" yet." 0 0 0
+                        cd ../
+                        continue
+                    else
+                        cd "./Split_${book%.pdf}" || exit 2
+                    fi
+
+                    currentbook=$book
+                    book="$(printf "%s\n" "$(ls *.pdf 2>/dev/null | sort)" "Exit" | dmenu -l 20)"
+
+                    if ! [ "$book" == "Exit" ]; then
+
+                        while true; do
+                            selectScanResolution=$(printf "%s\n" "Select resolution" "300" "150" "500" | dmenu -l 20)
+
+                            ifnumber='^[0-9]+$'
+                            if ! [[ $selectScanResolution =~ $ifnumber ]]; then
+                                echo "error: Prompt a number"
+                                continue
+                            elif [ $selectScanResolution -gt 1000 ]; then
+                            echo "error: Too big DPI"
+                            continue
+                            elif [ $selectScanResolution -lt 70 ]; then
+                            echo "error: Too small DPI"
+                            continue
+                            else
+                                break
+                            fi
+                        done
+
+                        # Starts convertation from pdf to jpeg, overvrites if there are files already.
+
+                        echo "Converting files."
+                        mkdir "Image_${book%.pdf}" 2>/dev/null
+                        pdftoppm -overprint -r "$selectScanResolution" "$book" ./"Image_${book%.pdf}"/p -jpeg
+
+                        echo "Files converted, starting Scan."
+                        mkdir "Text_${book%.pdf}" 2>/dev/null
+                        cd ./"Image_${book%.pdf}" || exit
+                        TESSDATA_PREFIX=/usr/share/tessdata
+                        for pages in p*.jpg; do
+                            tesseract "$pages" ../"Text_${book%.pdf}"/"${pages%.jpg}" || exit
+                            printf "\n%s\n" "===PageBreak ${pages%.jpg}===" >>../"Text_${book%.pdf}"/"Full Text.txt" || exit
+                            cat ../"Text_${book%.pdf}"/"${pages%.jpg}.txt" >>../"Text_${book%.pdf}"/"Full Text.txt" || exit
+                        done
+                        cd ../
+                        cd ../
+                        cd ../
+                        echo "Scan finished!"
+                        book=$currentbook
+
+                    else
+                        book=$currentbook
+                        cd ../
+                        cd ../
+                    fi
+
+                else
+                    whiptail --msgbox "Split something first!" 0 0 0
+                fi
+                ;;
+
+            "Reselect")
+
+                book="$(ls -1 *.pdf | sort | dmenu -l 20)"
+                echo "------------"
+                echo "Reselected: \"${book%.pdf}\""
+                echo
+                echo "Pages: $(pdfinfo "$book" | awk '/^Pages:/ {print $2}')"
+                echo "------------"
+                ;;
+
+            "Open Folder")
+
+                ranger "./.bookish/Split_${book%.pdf}/" 2>/dev/null || whiptail --msgbox "No folder for a \"${book%.pdf}\" yet." 0 0 0
+                ;;
+
+            "Delete Folder")
+                if [ "$(ls -1 .bookish/ 2> /dev/null)" == "" ]; then
+                    rm -dr ./.bookish/ 2> /dev/null
+                    whiptail --msgbox "As no book folders were found,\n The bookish folder was purged" 0 0 0
+                else
+
+                    if [ -d ".bookish/Split_${book%.pdf}" ]; then
+                        if whiptail --yesno "Delete \"${book%.pdf}\"'s bookish folder?" 0 0; then
+                            rm -dr ".bookish/Split_${book%.pdf}"
+                            whiptail --msgbox "Deleted \"${book%.pdf}\"'s bookish folder." 0 0 0
+                        fi
+                    else
+                        whiptail --msgbox "No \"${book%.pdf}\"'s folder to delete." 0 0 0
+                    fi
+
+                fi
+                ;;
+
+            "Exit")
+                whiptail --msgbox "Closed the programm on the \"${book%.pdf}\" book." 0 0 0
+                echo "Closed the programm on the \"${book%.pdf}\" book."
+                exit 0
+                ;;
+
+            "dir")
+                echo " Currently at: $PWD"
+                ;;
+            "book")
+                echo " Current pdf is: $book"
+                ;;
+            *)
+                echo "No such a command"
+                continue
+                ;;
+
+            esac
+
+        done
+    fi
+done
+
+# Close program on Esc only, restart if book doesn's exist (I hope...)
+
+if ! [ "$book" == "" ]; then
+    exec $(basename) "$0" && exit
+fi
+
+echo "Nothing to do."
