@@ -23,6 +23,8 @@ I myself use it in my digital book library so I can return to my already done sp
 
 I used dmenu because it can easily search and tab. You can flavour it with dmenu patch.
 
+- It could be updated soon as I use it and understand what's needed. May be .md convert with contents for page breaks or something like this.
+
 # Demo
 ![image](https://github.com/user-attachments/assets/3236de4c-122c-4357-88eb-94cdafb9f29a)
 
