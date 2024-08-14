@@ -26,7 +26,7 @@ I used dmenu because it can easily search and tab. You can flavour it with dmenu
 - It could be updated soon as I use it and understand what's needed. May be .md convert with contents for page breaks or something like this.
 
 # Demo
-![image](https://github.com/user-attachments/assets/3236de4c-122c-4357-88eb-94cdafb9f29a)
+![image](https://github.com/user-attachments/assets/783d9e7e-8996-44eb-9e02-a6b96830dc03)
 
 ---
 
