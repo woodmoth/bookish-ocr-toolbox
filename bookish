@@ -1,11 +1,11 @@
 #! /bin/bash
 
-# Do not create .bookish folders of your own in the working directories! Though it shouldm't be deleted unless there are no unhidden files inside.
+#! Do not create .bookish folders of your own in the working directories! Though the folder shouldn't be deleted unless there are no unhidden files inside.
 
 clear
 
-# Packages check: dmenu, poppler, tesseract and tesseract datas
-
+# Packages check: dmenu, poppler, leptonica, tesseract, tesseract-data.*, whiptail, ranger
+#--------------------------------------------------------------------
 if ! which dmenu >/dev/null 2>/dev/null; then
     echo "No dmenu package found. Instal before starting Bookish"
     exit
@@ -14,11 +14,19 @@ if ! which pdftoppm >/dev/null 2>/dev/null; then
     echo "No poppler package found. Instal before starting Bookish"
     exit
 fi
-if ! which pdfinfo >/dev/null 2>/dev/null; then
-    echo "No poppler package found. Instal before starting Bookish"
+if ! find /usr/lib/libleptonica.so >/dev/null 2>/dev/null; then
+    echo "No leptonica package found. Instal before starting Bookish"
     exit
 fi
 if ! which tesseract >/dev/null 2>/dev/null; then
+    echo "No tesseract package found. Instal before starting Bookish"
+    exit
+fi
+if ! find /usr/share/tessdata/*.traineddata >/dev/null 2>/dev/null; then
+    echo "No tesseract-data-.* package found. Instal any language.traineddata before starting Bookish"
+    exit
+fi
+if ! which whiptail >/dev/null 2>/dev/null; then
     echo "No whiptail package found. Instal before starting Bookish"
     exit
 fi
@@ -26,11 +34,7 @@ if ! which ranger >/dev/null 2>/dev/null; then
     echo "No ranger package found. Instal before starting Bookish"
     exit
 fi
-if ! which whiptail >/dev/null 2>/dev/null; then
-    echo "No whiptail package found. Instal before starting Bookish"
-    exit
-fi
-
+#--------------------------------------------------------------------
 # Starting Bookish
 
 workingDirectory=$PWD
@@ -197,14 +201,14 @@ for i in *.pdf; do
             "Reselect")
                 currentbook="$book"
                 book="$(ls -1 *.pdf | sort | dmenu -l 10)"
-                if find "$book" 2> /dev/null; then
+                if find "$book" 2>/dev/null; then
                     echo "------------"
                     echo "Reselected: \"${book%.pdf}\""
                     echo
                     echo "Pages: $(pdfinfo "$book" | awk '/^Pages:/ {print $2}')"
                     echo "------------"
                 else
-                book=$currentbook
+                    book=$currentbook
                 fi
                 ;;
 
@@ -244,7 +248,7 @@ for i in *.pdf; do
                 echo " Current pdf is: $book"
                 ;;
             "purge!")
-                if find "$workingDirectory/.bookish" 1> /dev/null 2>/dev/null; then
+                if find "$workingDirectory/.bookish" 1>/dev/null 2>/dev/null; then
                     rm -dr ./.bookish/ 2>/dev/null
                     whiptail --msgbox "Removed ./bookish folder" 0 0 0
                     echo "Removed ./bookish folder"
