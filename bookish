@@ -6,31 +6,31 @@ clear
 
 # Packages check: dmenu, poppler, leptonica, tesseract, tesseract-data.*, whiptail, ranger
 #--------------------------------------------------------------------
-if ! which dmenu >/dev/null 2>/dev/null; then
+if ! which dmenu &>/dev/null; then
     echo "No dmenu package found. Instal before starting Bookish"
     exit
 fi
-if ! which pdftoppm >/dev/null 2>/dev/null; then
+if ! which pdftoppm &>/dev/null; then
     echo "No poppler package found. Instal before starting Bookish"
     exit
 fi
-if ! find /usr/lib/libleptonica.so >/dev/null 2>/dev/null; then
+if ! find /usr/lib/libleptonica.so &>/dev/null; then
     echo "No leptonica package found. Instal before starting Bookish"
     exit
 fi
-if ! which tesseract >/dev/null 2>/dev/null; then
+if ! which tesseract &>/dev/null; then
     echo "No tesseract package found. Instal before starting Bookish"
     exit
 fi
-if ! find /usr/share/tessdata/*.traineddata >/dev/null 2>/dev/null; then
+if ! find /usr/share/tessdata/*.traineddata &>/dev/null; then
     echo "No tesseract-data-.* package found. Instal any language.traineddata before starting Bookish"
     exit
 fi
-if ! which whiptail >/dev/null 2>/dev/null; then
+if ! which whiptail &>/dev/null; then
     echo "No whiptail package found. Instal before starting Bookish"
     exit
 fi
-if ! which ranger >/dev/null 2>/dev/null; then
+if ! which ranger &>/dev/null; then
     echo "No ranger package found. Instal before starting Bookish"
     exit
 fi
@@ -185,6 +185,7 @@ for i in *.pdf; do
                             cat ../"Text_${book%.pdf}"/"${pages%.jpg}.txt" >>../"Text_${book%.pdf}"/"Full Text.md" || exit
                         done
                         cd "$workingDirectory" || exit 2
+                        whiptail --msgbox "Scan finished!" 0 0 0
                         echo "Scan finished!"
                         book=$currentbook
 
@@ -248,7 +249,7 @@ for i in *.pdf; do
                 echo " Current pdf is: $book"
                 ;;
             "purge!")
-                if find "$workingDirectory/.bookish" 1>/dev/null 2>/dev/null; then
+                if find "$workingDirectory/.bookish" &>/dev/null; then
                     rm -dr ./.bookish/ 2>/dev/null
                     whiptail --msgbox "Removed ./bookish folder" 0 0 0
                     echo "Removed ./bookish folder"
