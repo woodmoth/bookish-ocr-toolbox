@@ -2,9 +2,117 @@
 
 #! Do not create .bookish folders of your own in the working directories! Though the folder shouldn't be deleted unless there are no unhidden files inside.
 
+#-----------------------------------------------------------------------------------
+
+function py_search {
+    # Python Search Engine working in /tmp.
+    tmp_python_search_engine_dir=$(mktemp -d)
+    mkdir "$tmp_python_search_engine_dir/Find"
+    mkdir "$tmp_python_search_engine_dir/Results"
+
+    cp "$python_to_seek_in_book" "$tmp_python_search_engine_dir/Find"
+
+    # Creates python search engine, regex search for phrases and words within one or more utf-8 texts with output formatter and match priority division
+    cat >"$tmp_python_search_engine_dir/bookishSearch.py" <<EOF
+import re
+import os
+def words_select(string):
+    words = re.split(r"\W+", string)
+    return [word.lower() for word in filter(lambda x: x != "", words)]
+
+
+def find(phrase, depth, volume):
+    global SIZE, line_counter, black_mark
+    long_string = list()
+    for ind in range(SIZE):
+        long_string += lines[ind]
+    for i in range(len(long_string)):
+        if long_string[i][1] in black_mark:
+            continue
+        if re.compile(phrase[0][: len(phrase[0]) - depth] + ".*").fullmatch(
+            long_string[i][0]
+        ):
+            suitable_phrase = " ".join(
+                [
+                    pair[0]
+                    for pair in long_string[i : min(i + len(phrase), len(long_string))]
+                ]
+            )
+            pattern = " ".join([word[: len(word) - depth] + ".*" for word in phrase])
+            if re.fullmatch(pattern, suitable_phrase):
+                line_numbers = set(
+                    [pair[1] for pair in long_string[i : i + len(phrase)]]
+                )
+                black_mark = black_mark | line_numbers
+                result[volume][depth].append(
+                    tuple(
+                        [
+                            line_numbers,
+                            suitable_phrase,
+                            [text[num + SIZE - line_counter] for num in line_numbers],
+                        ]
+                    )
+                )
+phrase = tuple(input("Find: ").lower().split())
+DEPTH, SIZE = min(5, min([len(word) for word in phrase])), 10
+files = list(
+    filter(
+        lambda x: re.fullmatch(r".*.md", x),
+        os.listdir(os.path.dirname(os.path.abspath(__file__)) + "/Find" ),
+    )
+)
+result = [[[] for i in range(DEPTH)] for j in range(len(files))]
+black_mark = set()
+with open(
+    f"{os.path.dirname(os.path.abspath(__file__))}/Results/{' '.join(phrase)}.md",
+    "w",
+    encoding="utf-8",
+) as output:
+    for num in range(len(files)):
+        with open(
+            f"{os.path.dirname(os.path.abspath(__file__))}/Find/{files[num]}",
+            "r",
+            encoding="utf-8",
+        ) as source:
+            line, lines, line_counter = " ", list(), SIZE + 1
+            text = list()
+            for i in range(SIZE):
+                line = source.readline()
+                text.append(line)
+                lines.append([(word, i + 1) for word in words_select(line)])
+            while line:
+                for depth in range(DEPTH):
+                    find(phrase, depth, num)
+                line = source.readline()
+                text.append(line)
+                lines.append([(word, line_counter) for word in words_select(line)])
+                text.pop(0)
+                lines.pop(0)
+                line_counter += 1
+        output.write(f"# BOOK {num + 1} [{files[num]}]\n\n")
+        for i in range(DEPTH):
+            output.write(f"## priority {i + 1}:\n")
+            for pos in result[num][i]:
+                output.write(f"line {','.join([str(num) for num in pos[0]])}: ")
+                output.write("*" + pos[1] + "* \n")
+                for l in pos[2]:
+                    output.write(" - " + l + "\n")
+        output.write("\n\n")
+EOF
+    # Starts the search engine, waits for user's querry
+    python "$tmp_python_search_engine_dir/bookishSearch.py"
+    #-----
+    ranger "$tmp_python_search_engine_dir"
+    #-----
+    # Cleans up the tmp folder
+    rm -dr "$tmp_python_search_engine_dir"
+}
+
+#-----------------------------------------------------------------------------------
+
 clear
 
-# Packages check: dmenu, poppler, leptonica, tesseract, tesseract-data.*, whiptail, ranger
+# Packages check: dmenu, poppler, leptonica, tesseract, tesseract-data.*, whiptail, ranger, python
 #--------------------------------------------------------------------
 if ! which dmenu &>/dev/null; then
     echo "No dmenu package found. Instal before starting Bookish"
@@ -24,6 +132,10 @@ if ! which tesseract &>/dev/null; then
 fi
 if ! find /usr/share/tessdata/*.traineddata &>/dev/null; then
     echo "No tesseract-data-.* package found. Instal any language.traineddata before starting Bookish"
+    exit
+fi
+if ! find /usr/lib/python3.12/ &>/dev/null; then
+    echo "No python package found. Instal before starting Bookish"
     exit
 fi
 if ! which whiptail &>/dev/null; then
@@ -67,7 +179,7 @@ for i in *.pdf; do
 
         while true; do
 
-            bookishAction=$(printf "%s\n" "Split" "Scan" "Reselect" "Open Folder" "Delete Folder" "Exit" | dmenu -l 10)
+            bookishAction=$(printf "%s\n" "Split" "Scan" "Reselect" "Find" "Open Folder" "Delete Folder" "Exit" | dmenu -l 10)
 
             case "$bookishAction" in
             "Split")
@@ -214,7 +326,6 @@ for i in *.pdf; do
                 ;;
 
             "Open Folder")
-
                 ranger "./.bookish/Split_${book%.pdf}/" 2>/dev/null || whiptail --msgbox "No folder for a \"${book%.pdf}\" yet." 0 0 0
                 ;;
 
@@ -241,7 +352,25 @@ for i in *.pdf; do
                 echo "Closed the programm on the \"${book%.pdf}\" book."
                 exit 0
                 ;;
-
+            "Find")
+                if cd ".bookish/Split_${book%.pdf}"; then
+                    if find Text_* >/dev/null; then
+                        toSeek="$(ls -1 -d Text_*/ | tr -d / | sort | dmenu -l 10)"
+                    if cd "${toSeek}/"; then
+                        cat "Full Text.md" >"${toSeek#Text_}.md"
+                        python_to_seek_in_book="${toSeek#Text_}.md"
+                        py_search
+                        rm "$python_to_seek_in_book"
+                        cd "$workingDirectory" || exit 2
+                        fi
+                    else
+                        cd "$workingDirectory" || exit 2
+                    fi
+                else
+                    cd "$workingDirectory" || exit 2
+                    whiptail --msgbox "No folder for a \"${book%.pdf}\" yet." 0 0 0
+                fi
+                ;;
             "pwd!")
                 echo " Currently at: $PWD"
                 ;;
@@ -258,7 +387,7 @@ for i in *.pdf; do
                 fi
                 ;;
             *)
-                echo "No such a command"
+                whiptail --msgbox "No $bookishAction command" 0 0 0
                 continue
                 ;;
 
