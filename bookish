@@ -157,7 +157,7 @@ echo "==========================================================================
 
 # Dmenu shows available .pdfs, you can select or search. If no pdf in folder - Nothing!
 
-book=$(printf "%s\n" "$(find ./*.pdf 2>/dev/null | sort)" "Nothing!" | dmenu -l 10)
+book=$(printf "%s\n" "$(find *.pdf 2>/dev/null | sort)" "Nothing!" | dmenu -l 10)
 
 if [ "$book" == "Nothing!" ]; then
     echo "Changed your mind?"
@@ -313,7 +313,7 @@ for i in *.pdf; do
 
             "Reselect")
                 currentbook="$book"
-                book="$(find ./*.pdf | sort | dmenu -l 10)"
+                book="$(find *.pdf | sort | dmenu -l 10)"
                 if find "$book" 2>/dev/null; then
                     echo "------------"
                     echo "Reselected: \"${book%.pdf}\""
