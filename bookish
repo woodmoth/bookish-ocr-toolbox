@@ -164,6 +164,11 @@ if [ "$book" == "Nothing!" ]; then
     exit
 fi
 
+if [ "$(head -c 4 "$book")" != "%PDF" ]; then
+    whiptail --msgbox "\"$book\" is not a PDF file or doesn't exist. Restarting" 0 0 0
+    exec $(basename) "$0" && exit
+fi
+
 # Check if prompted pdf exists.
 # Shows number of pages using poppler-utils' pdfinfo
 
@@ -314,6 +319,11 @@ for i in *.pdf; do
             "Reselect")
                 currentbook="$book"
                 book="$(find *.pdf | sort | dmenu -l 10)"
+                if [ "$(head -c 4 "$book")" != "%PDF" ]; then
+                    whiptail --msgbox "\"$book\" is not a PDF file, reselecting previous book" 0 0 0
+                    echo "The file is not a PDF file, reselecting previous book"
+                    book=$currentbook
+                fi
                 if find "$book" 2>/dev/null; then
                     echo "------------"
                     echo "Reselected: \"${book%.pdf}\""
@@ -356,12 +366,12 @@ for i in *.pdf; do
                 if cd ".bookish/Split_${book%.pdf}"; then
                     if find Text_* >/dev/null; then
                         toSeek="$(ls -1 -d Text_*/ | tr -d / | sort | dmenu -l 10)"
-                    if cd "${toSeek}/"; then
-                        cat "Full Text.md" >"${toSeek#Text_}.md"
-                        python_to_seek_in_book="${toSeek#Text_}.md"
-                        py_search
-                        rm "$python_to_seek_in_book"
-                        cd "$workingDirectory" || exit 2
+                        if cd "${toSeek}/"; then
+                            cat "Full Text.md" >"${toSeek#Text_}.md"
+                            python_to_seek_in_book="${toSeek#Text_}.md"
+                            py_search
+                            rm "$python_to_seek_in_book"
+                            cd "$workingDirectory" || exit 2
                         fi
                     else
                         cd "$workingDirectory" || exit 2
